@@ -142,7 +142,7 @@ staticCodeAnalysis.with{
     }
     shell('''set +x
             |echo "Mount the Dockerfile into a container that will run Dockerlint: https://github.com/RedCoolBeans/dockerlint"
-            |docker run --rm -v jenkins_slave_home:/jenkins_slave_home/ --entrypoint="dockerlint" redcoolbeans/dockerlint -f /jenkins_slave_home/$JOB_NAME/Dockerfile > ${WORKSPACE}/${JOB_NAME##*/}.out
+            |docker run --rm -v jenkins_slave_home:/jenkins_slave_home/ --entrypoint="dockerlint" redcoolbeans/dockerlint:0.2.0 -f /jenkins_slave_home/$JOB_NAME/Dockerfile > ${WORKSPACE}/${JOB_NAME##*/}.out
             |
             |if ! grep "Dockerfile is OK" ${WORKSPACE}/${JOB_NAME##*/}.out ; then
             | echo "Dockerfile does not satisfy Dockerlint static code analysis"
