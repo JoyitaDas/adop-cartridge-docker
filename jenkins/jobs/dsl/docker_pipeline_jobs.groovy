@@ -1,10 +1,17 @@
+import pluggable.scm.*;
+import adop.cartridge.properties.*;
+
+SCMProvider scmProvider = SCMProvider.getScmProvider("${SCM_PROVIDER_ID}", binding.variables)
+CartridgeProperties cartridgeProperties = new CartridgeProperties("${CARTRIDGE_CUSTOM_PROPERTIES}");
+
 // Folders
 def workspaceFolderName = "${WORKSPACE_NAME}"
 def projectFolderName = "${PROJECT_NAME}"
+def projectScmNamespace = "${SCM_NAMESPACE}"
 
 // Variables
 def dockerfileGitRepo = "adop-cartridge-docker-reference"
-def dockerfileGitUrl = "ssh://jenkins@gerrit:29418/${PROJECT_NAME}/" + dockerfileGitRepo
+def dockerfileGitUrl = cartridgeProperties.getProperty("scm.code.repo.name", "adop-cartridge-docker-reference");
 
 // Jobs
 def getDockerfile = freeStyleJob(projectFolderName + "/Get_Dockerfile")
@@ -53,31 +60,13 @@ getDockerfile.with{
     maskPasswords()
     sshAgent("adop-jenkins-master")
   }
-  scm{
-    git{
-      remote{
-        url('${IMAGE_REPO}')
-        credentials("adop-jenkins-master")
-      }
-      branch("*/master")
-    }
-  }
+  scm scmProvider.get(projectScmNamespace,'${IMAGE_REPO}', "*/master", "adop-jenkins-master", null)
   environmentVariables {
       env('WORKSPACE_NAME',workspaceFolderName)
       env('PROJECT_NAME',projectFolderName)
   }
   label("docker")
-  triggers {
-    gerrit {
-      events {
-          refUpdated()
-      }
-      project(projectFolderName + '/' + dockerfileGitRepo, 'plain:master')
-      configure { node ->
-          node / serverName("ADOP Gerrit")
-      }
-    }
-  }
+  triggers scmProvider.trigger(projectScmNamespace, dockerfileGitRepo, "master")
   steps {
     shell('''set +x
             |echo "Pull the Dockerfile out of Git, ready for us to test and if successful, release via the pipeline."
