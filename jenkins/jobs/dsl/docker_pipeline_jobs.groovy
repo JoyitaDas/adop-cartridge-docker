@@ -1,7 +1,7 @@
 import pluggable.scm.*;
 import adop.cartridge.properties.*;
 
-SCMProvider scmProvider = SCMProvider.getScmProvider("${SCM_PROVIDER_ID}", binding.variables)
+SCMProvider scmProvider = SCMProviderHandler.getScmProvider("${SCM_PROVIDER_ID}", binding.variables)
 CartridgeProperties cartridgeProperties = new CartridgeProperties("${CARTRIDGE_CUSTOM_PROPERTIES}");
 
 // Folders
@@ -10,8 +10,10 @@ def projectFolderName = "${PROJECT_NAME}"
 def projectScmNamespace = "${SCM_NAMESPACE}"
 
 // Variables
-def dockerfileGitRepo = "adop-cartridge-docker-reference"
-def dockerfileGitUrl = cartridgeProperties.getProperty("scm.code.repo.name", "adop-cartridge-docker-reference");
+def scmUrl = scmProvider.getScmUrl()
+def dockerfileGitRepo = cartridgeProperties.getProperty("scm.code.repo.name", "adop-cartridge-docker-reference");
+def dockerfileGitUrl = scmUrl + "${PROJECT_NAME}/" + dockerfileGitRepo
+
 
 // Jobs
 def getDockerfile = freeStyleJob(projectFolderName + "/Get_Dockerfile")
@@ -60,13 +62,21 @@ getDockerfile.with{
     maskPasswords()
     sshAgent("adop-jenkins-master")
   }
-  scm scmProvider.get(projectScmNamespace,'${IMAGE_REPO}', "*/master", "adop-jenkins-master", null)
+  scm{
+    git{
+      remote{
+        url('${IMAGE_REPO}')
+        credentials("adop-jenkins-master")
+      }
+      branch("*/master")
+    }
+  }
   environmentVariables {
       env('WORKSPACE_NAME',workspaceFolderName)
       env('PROJECT_NAME',projectFolderName)
   }
   label("docker")
-  triggers scmProvider.trigger(projectScmNamespace, dockerfileGitRepo, "master")
+  triggers scmProvider.trigger(projectFolderName, dockerfileGitRepo, "master")
   steps {
     shell('''set +x
             |echo "Pull the Dockerfile out of Git, ready for us to test and if successful, release via the pipeline."
